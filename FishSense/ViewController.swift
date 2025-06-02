@@ -11,10 +11,11 @@ class ViewController: UIViewController, ARSessionDelegate {
     @IBOutlet private weak var photoButton: UIButton!
     // Add a fish image on the upper right corner.
     let imageView = UIImageView()
+    
+    let databaseModel = DatabaseModel()
 
     let westjetTeal: UIColor = UIColor( red: CGFloat(0/255.0), green: CGFloat(170/255.0), blue: CGFloat(165/255.0), alpha: CGFloat(1.0) )
     let coachingOverlay = ARCoachingOverlayView()
-    var nodes: [SphereNode] = []
     
     // Cache for 3D text geometries representing the classification values.
     var modelsForClassification: [ARMeshClassification: ModelEntity] = [:]
@@ -87,9 +88,6 @@ class ViewController: UIViewController, ARSessionDelegate {
         configuration.frameSemantics.insert(.sceneDepth)
         arView.session.run(configuration)
         
-        let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
-        arView.addGestureRecognizer(tapRecognizer)
-        
         view.addSubview(greyView)
         view.addSubview(statusLabel)
         view.addSubview(lengthLabel)
@@ -114,6 +112,22 @@ class ViewController: UIViewController, ARSessionDelegate {
         imageView.layer.cornerRadius = 8
 
         view.addSubview(imageView)
+        
+        let touchButton = UIButton(type: .system)
+        touchButton.setTitle("Upload Photo", for: .normal)
+        touchButton.backgroundColor = .systemBlue
+        touchButton.setTitleColor(.white, for: .normal)
+        touchButton.layer.cornerRadius = 10
+
+        // Set position and size
+        touchButton.frame = CGRect(x: 20, y: view.bounds.height - 130, width: 140, height: 50)
+        touchButton.autoresizingMask = [.flexibleTopMargin, .flexibleRightMargin]
+
+        // Add action
+        touchButton.addTarget(self, action: #selector(uploadButtonTouched), for: .touchUpInside)
+
+        // Add to view
+        view.addSubview(touchButton)
     }
     
     override func viewDidLayoutSubviews() {
@@ -140,37 +154,6 @@ class ViewController: UIViewController, ARSessionDelegate {
     /// Places virtual-text of the classification at the touch-location's real-world intersection with a mesh.
     /// Note - because classification of the tapped-mesh is retrieved asynchronously, we visualize the intersection
     /// point immediately to give instant visual feedback of the tap.
-    @objc
-    func handleTap(_ sender: UITapGestureRecognizer) {
-        //arView.scene.removeAnchor(<#T##anchor: HasAnchoring##HasAnchoring#>)
-        if nodes.count > 1 {
-            nodes = []
-            arView.scene.anchors.removeAll()
-        }
-        // 1. Perform a ray cast against the mesh.
-        // Note: Ray-cast option ".estimatedPlane" with alignment ".any" also takes the mesh into account.
-        let tapLocation = sender.location(in: arView)  // 2D location on the screen
-        if let result = arView.raycast(from: tapLocation, allowing: .estimatedPlane, alignment: .any).first {
-            // ...
-            // 2. Visualize the intersection point of the ray with the ›real-world surface.
-            let pos = result.worldTransform // ARRaycastResult object
-            let resultAnchor = AnchorEntity(world: pos)
-            resultAnchor.addChild(sphere(radius: 0.01, color: .red))
-            //arView.scene.addAnchor(resultAnchor, removeAfter: 3)
-            arView.scene.addAnchor(resultAnchor)
-            
-            let position = SCNVector3.positionFrom(matrix: result.worldTransform)
-            let sphere = SphereNode(position: position)
-
-            let lastNode = nodes.last
-            nodes.append(sphere)
-            if lastNode != nil {
-                let distance = lastNode!.position.distance(to: sphere.position)
-                lengthLabel.text = String(format: "Distance: %.1f cm", distance * 100)
-                lengthLabel.textColor = .red
-            }
-        }
-    }
     
     func displayErrorMessage(title: String, message: String) {
         // Pop an error message to the user with the error.
@@ -195,7 +178,9 @@ class ViewController: UIViewController, ARSessionDelegate {
         if let cgImage = context.createCGImage(ciImage, from: ciImage.extent) {
             // Handle depth data
             if #available(iOS 14.0, *) {
-                if let depthData = currentFrame.sceneDepth?.depthMap {
+                if let depthData = currentFrame.sceneDepth?.depthMap,
+                    let confidenceData = currentFrame.sceneDepth?.confidenceMap {
+                    
 //                  Testing Code.
 //                    let depthImage = depthMapToUIImage(depthData)
 //                    DispatchQueue.main.async {
@@ -205,15 +190,11 @@ class ViewController: UIViewController, ARSessionDelegate {
                     let image = UIImage(cgImage: cgImage)
                     // Add a fish image on the upper right corner.
                     
-                    let timestamp = Date().timeIntervalSince1970
+                    let timestamp = Int64(Date().timeIntervalSince1970)
                     
                     // Save the RGB image
                     let imageName = "rgb_\(timestamp).jpg"
                     saveImage(image/*, withName: imageName*/, withName: imageName)
-                    
-                    // Save depth data
-                    let depthName = "depth_\(timestamp).png"
-                    saveDepthData(depthData, withName: depthName)
                     
                     let imgData = cgImage.dataProvider?.data
                     let imgBytes = CFDataGetBytePtr(imgData)
@@ -222,6 +203,11 @@ class ViewController: UIViewController, ARSessionDelegate {
                     let depthWidth = CVPixelBufferGetWidth(depthData)
                     let depthHeight = CVPixelBufferGetHeight(depthData)
                     let depthBytes = CVPixelBufferGetBaseAddress(depthData)
+                    
+                    CVPixelBufferLockBaseAddress(confidenceData, .readOnly)
+                    let confidenceWidth = CVPixelBufferGetWidth(confidenceData)
+                    let confidenceHeight = CVPixelBufferGetHeight(confidenceData)
+                    let confidenceBytes = CVPixelBufferGetBaseAddress(confidenceData)
                     
                     // Get a flat array
                     let cameraIntrinsicsInverted = matrix3x3ToArray(currentFrame.camera.intrinsics.inverse.transpose)
@@ -232,6 +218,11 @@ class ViewController: UIViewController, ARSessionDelegate {
                         cameraIntrinsicsInverted
                     )
                     
+                    if let depthMap = ByteMatrixModel(depthBytes, withWidth: depthWidth, andHeight: depthHeight), let confidenceMap = ByteMatrixModel(confidenceBytes, withWidth: confidenceWidth, andHeight: confidenceHeight), let photo = PhotoModel(withUtcUnixTimestamp: timestamp, rgbPath: imageName, depthMap: depthMap, confidenceMap: confidenceMap, estimatedLength: lengthResult.length, fishFound:lengthResult.fish_found) {
+                        let _ = databaseModel?.insertPhoto(with: photo)
+                    }
+                    
+                    defer { CVPixelBufferUnlockBaseAddress(confidenceData, .readOnly) }
                     defer { CVPixelBufferUnlockBaseAddress(depthData, .readOnly) }
                     
                     if lengthResult.error_string != nil {
@@ -270,7 +261,7 @@ class ViewController: UIViewController, ARSessionDelegate {
         }
     }
     
-    func saveLength(_ lengthResult: ComputeLengthResult, andTimeStamp timestamp: TimeInterval) {
+    func saveLength(_ lengthResult: ComputeLengthResult, andTimeStamp timestamp: Int64) {
         displayErrorMessage(title: "Fish Length", message: "\((lengthResult.length * 1000).rounded() / 10)cm")
     }
 
@@ -604,6 +595,36 @@ class ViewController: UIViewController, ARSessionDelegate {
         UIGraphicsEndImageContext()
         
         return rotatedImage
+    }
+    @objc func uploadButtonTouched() {
+        let alert = UIAlertController(title: "Sync Data", message: "Do you want to sync?", preferredStyle: .alert)
+        
+        let syncAction = UIAlertAction(title: "Sync", style: .default) { _ in
+            self.databaseModel!.createRemoteDatabase { [weak self] success, message in
+                if success {
+                    self?.databaseModel!.syncPhotosToAWS { [weak self] success, message in
+                        if success {
+                            self?.displayErrorMessage(title: "Sync Complete", message: message)
+                        }
+                        else {
+                            self?.displayErrorMessage(title: "Sync Failed", message: message)
+                        }
+                    }
+                }
+                else {
+                    self?.displayErrorMessage(title: "Error", message: message)
+                }
+            }
+        }
+        
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in
+            print("User canceled sync")
+        }
+        
+        alert.addAction(syncAction)
+        alert.addAction(cancelAction)
+        
+        present(alert, animated: true, completion: nil)
     }
 }
 
