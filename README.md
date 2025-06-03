@@ -1,7 +1,7 @@
 # FishSense iOS Application
 
 ## Overview
-FishSense is an iOS application that leverages lidar and RGB segmentation to assist in fish length measurement and fish species detection. The app uses ARKit and RealityKit to provide real-time 3D scene understanding and mesh classification, making it easier to measure and analyze fish in their natural environment.
+FishSense is an iOS application that leverages lidar and RGB segmentation to assist in fish length measurement and fish species detection. 
 
 ## Features of the iOS Application
 - Real-time AR scene reconstruction and mesh classification.
