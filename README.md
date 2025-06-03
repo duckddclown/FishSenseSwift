@@ -56,7 +56,7 @@ open FishSense.xcodeproj
 ```
 
 3. Build and run the project on your iOS device (Pro Models) 
-## Detailed File Overview (Summary)
+## File Overview
 
 - **`AppDelegate.swift`**  
   Manages app lifecycle; contains optional ARKit and LiDAR compatibility checks.
@@ -76,7 +76,6 @@ open FishSense.xcodeproj
 - **`DatabaseModel.swift`**
   - Sets up local SQLite DB for image/depth/confidence data.
   - Handles remote sync via AWS API Gateway.
-  - Authenticates and POSTs data to `.../fishsense_add_photo`.
 
 - **`PhotoModel.swift`**  
   Defines `PhotoModel` (photo, timestamp, depth, confidence, fish length, detection flag) and `ByteMatrixModel`.
@@ -94,10 +93,9 @@ open FishSense.xcodeproj
 
 ## AWS Lambda (`lambda.py`)
 
-- **Purpose**: Sets up the remote MySQL DB and `photos` table.
-- **Auth**: Validates API key, app/device ID, and request timestamp.
-- **DB Logic**: Connects using env vars; creates `photos` table if missing.
-- **Note**: This script handles setup only; it doesn’t process photo uploads. Uploads go to a separate endpoint (`.../fishsense_add_photo`).
+- Sets up the remote MySQL DB and `photos` table.
+- Validates API key, app/device ID, and request timestamp.
+- Connects using env vars; creates and updates `photos` table.
 
       
 ## Usage
