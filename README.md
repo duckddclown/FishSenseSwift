@@ -1,9 +1,9 @@
-# FishSense
+# FishSense iOS Application
 
 ## Overview
 FishSense is an iOS application that leverages lidar and RGB segmentation to assist in fish length measurement and fish species detection. The app uses ARKit and RealityKit to provide real-time 3D scene understanding and mesh classification, making it easier to measure and analyze fish in their natural environment.
 
-## Features
+## Features of the iOS Application
 - Real-time AR scene reconstruction and mesh classification.
 - AR-based capture of images and depth information.
 - Automated fish length estimation (utilizing the `FishSenseRS` library).
@@ -125,7 +125,7 @@ open FishSense.xcodeproj
     * Defines the bundle identifier, version, required device capabilities, and privacy-sensitive data usage descriptions (Camera, Location, Microphone, Photo Library).
     * Enables `UIFileSharingEnabled` and `LSSupportsOpeningDocumentsInPlace` for document interaction.
 
-## AWS Lambda (Python/)
+## AWS Lambda (Python)
 
 * **`lambda.py`**:
     * An AWS Lambda function implemented in Python, intended for invocation via API Gateway.
@@ -156,27 +156,6 @@ core functionalities:
 - Image and Data Processing: Involves capturing RGB images, CVPixelBuffer depth/confidence maps, and utilizing the FishSenseRS library for computational tasks like length estimation.
 - AWS Backend: An AWS Lambda function (lambda.py) handles authenticated requests for remote database setup. Photo data is intended to be uploaded to an AWS S3/RDS backend via API Gateway.
 
-## Operational Flow
-1. AR Initialization: The application launches into an AR session managed by ViewController.
-2. Data Acquisition: Upon user-initiated capture:
-   - RGB image, depth map, and confidence map are acquired from the ARFrame.
-   - Fish length estimation and species identification is performed via the FishSenseRS library.
-   - The RGB image is persisted to the local file system.
-   - A PhotoModel instance is populated and saved to the local SQLite database via DatabaseModel.
-3. Local Data Review: Users can review captured photos in PhotoViewController.
-4. Cloud Synchronization:
-   - Activation of the "Upload" function triggers DatabaseModel.createRemoteDatabase() (invoking AWS Lambda) to ensure remote table readiness.
-   - DatabaseModel.syncPhotosToAWS() then retrieves local data, base64 encodes binary blobs, and transmits it to an AWS API Gateway endpoint for storage.
-
-## Contributing
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/newFeature`)
-3. Commit your changes (`git commit -m 'Add some newFeature'`)
-4. Push to the branch (`git push origin feature/newFeature`)
-5. Open a Pull Request
-
-## License
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Contact
 For any questions or concerns, please open an issue in the GitHub repository. 
