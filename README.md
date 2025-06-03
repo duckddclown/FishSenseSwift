@@ -164,3 +164,5 @@ Contact us at aeswaran@ucsd.edu, zil102@ucsd.edu, trathore@ucsd.edu, ccrutchf@uc
 ## Acknowledgments
 - ARKit and RealityKit frameworks by Apple
 - The development team and contributors
+- Parts of this documentation were generated or refined with assistance from AI tools such as OpenAI's ChatGPT
+
